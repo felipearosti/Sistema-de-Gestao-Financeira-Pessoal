@@ -27,8 +27,6 @@ public class Usuario {
         this.nome = nome;
     }
 
-    // Getters e setters
-
     public Long getId() { return id; }
 
     public String getEmail() { return email; }

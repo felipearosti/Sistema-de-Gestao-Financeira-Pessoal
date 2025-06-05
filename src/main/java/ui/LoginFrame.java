@@ -7,46 +7,77 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.List;
 
 public class LoginFrame extends JFrame {
 
     private JTextField emailField;
     private JPasswordField senhaField;
     private JButton loginButton;
+    private JButton cadastrarButton;
     private JLabel statusLabel;
 
     private GenericDAO<Usuario> usuarioDAO = new GenericDAO<>(Usuario.class);
 
     public LoginFrame() {
         setTitle("Login - Sistema Financeiro");
-        setSize(350, 200);
+        setSize(350, 250);  // Ajustei o tamanho da tela
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null); // centraliza tela
+        setLocationRelativeTo(null);  // Para centralizar na tela
 
         initComponents();
     }
 
     private void initComponents() {
-        JPanel panel = new JPanel(new GridLayout(4, 1, 10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        // Usando um layout mais simples: BorderLayout
+        setLayout(new BorderLayout(10, 10));
+
+        // Painel central (para os campos e botões)
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(4, 1, 10, 10)); // Layout mais simples
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20)); // Espaçamento interno
 
         emailField = new JTextField();
         senhaField = new JPasswordField();
         loginButton = new JButton("Entrar");
+        cadastrarButton = new JButton("Cadastrar");
+
         statusLabel = new JLabel("", SwingConstants.CENTER);
         statusLabel.setForeground(Color.RED);
 
+        // Adicionando os componentes ao painel
         panel.add(new JLabel("Email:"));
         panel.add(emailField);
         panel.add(new JLabel("Senha:"));
         panel.add(senhaField);
 
-        add(panel, BorderLayout.CENTER);
-        add(loginButton, BorderLayout.SOUTH);
-        add(statusLabel, BorderLayout.NORTH);
+        add(panel, BorderLayout.CENTER);  // Coloca o painel no centro da tela
+        add(statusLabel, BorderLayout.NORTH);  // Exibe o status (erro/sucesso) acima dos campos
 
+        // Botões (Coloca eles na parte inferior)
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER));  // Alinha os botões ao centro
+        buttonPanel.add(loginButton);
+        buttonPanel.add(cadastrarButton);
+
+        add(buttonPanel, BorderLayout.SOUTH);  // Coloca o painel com os botões no fundo da tela
+
+        // Ações dos botões
         loginButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                autenticar();
+            }
+        });
+
+        cadastrarButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                abrirCadastro();
+            }
+        });
+
+        // Pressionar "Enter" para fazer login
+        senhaField.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 autenticar();
@@ -56,19 +87,19 @@ public class LoginFrame extends JFrame {
 
     private void autenticar() {
         String email = emailField.getText().trim();
-        String senha = new String(senhaField.getPassword());
+        String senha = new String(senhaField.getPassword()).trim();
 
-        if(email.isEmpty() || senha.isEmpty()) {
+        if (email.isEmpty() || senha.isEmpty()) {
             statusLabel.setText("Preencha email e senha.");
             return;
         }
 
-        List<Usuario> usuarios = usuarioDAO.listarTodos();
-        for (Usuario u : usuarios) {
+        // Buscar o usuário no banco de dados
+        for (Usuario u : usuarioDAO.listarTodos()) {
             if (u.getEmail().equalsIgnoreCase(email) && u.getSenha().equals(senha)) {
                 statusLabel.setForeground(Color.GREEN);
                 statusLabel.setText("Login realizado com sucesso!");
-                abrirTelaPrincipal(u);
+                abrirTelaPrincipal(u);  // Passando o usuário logado
                 return;
             }
         }
@@ -77,14 +108,18 @@ public class LoginFrame extends JFrame {
     }
 
     private void abrirTelaPrincipal(Usuario usuario) {
-        // Aqui você pode abrir a janela principal do sistema passando o usuário logado
-        // Por enquanto, só fecha o login para exemplificar
-        JOptionPane.showMessageDialog(this, "Bem vindo, " + usuario.getNome() + "!");
+        JOptionPane.showMessageDialog(this, "Bem-vindo, " + usuario.getNome() + "!");
         this.dispose();
+        // Passando o nome do usuário para o MenuFrame
+        new MenuFrame(usuario.getNome()).setVisible(true);
+    }
+
+    private void abrirCadastro() {
+        this.dispose();
+        new CadastroUsuarioFrame().setVisible(true);
     }
 
     public static void main(String[] args) {
-        // Inicializa a interface no thread correto
         SwingUtilities.invokeLater(() -> {
             new LoginFrame().setVisible(true);
         });

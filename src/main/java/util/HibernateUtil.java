@@ -9,10 +9,10 @@ public class HibernateUtil {
     private static SessionFactory buildSessionFactory() {
         try {
             return new Configuration()
-                    .configure() // lê o hibernate.cfg.xml automaticamente
+                    .configure() // lê o arquivo hibernate.cfg.xml
                     .buildSessionFactory();
         } catch (Throwable ex) {
-            System.err.println("Erro na criação da SessionFactory: " + ex);
+            System.err.println("Erro ao criar SessionFactory: " + ex);
             throw new ExceptionInInitializerError(ex);
         }
     }

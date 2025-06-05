@@ -48,8 +48,6 @@ public class Transacao {
         this.usuario = usuario;
     }
 
-    // Getters e setters
-
     public Long getId() { return id; }
 
     public Double getValor() { return valor; }

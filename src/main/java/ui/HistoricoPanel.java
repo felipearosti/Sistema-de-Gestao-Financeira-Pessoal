@@ -1,149 +1,217 @@
 package ui;
 
 import dao.GenericDAO;
-import model.Categoria;
 import model.Transacao;
-import model.Transacao.TipoTransacao;
+import model.Usuario;
+import model.Categoria;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Date;
 
 public class HistoricoPanel extends JPanel {
 
-    private JComboBox<TipoTransacao> tipoCombo;
-    private JComboBox<Categoria> categoriaCombo;
-    private JTextField dataInicioField;
-    private JTextField dataFimField;
-    private JButton filtrarButton;
-    private JTable tabela;
-    private DefaultTableModel tabelaModel;
+    private JComboBox<String> tipoCombo;
+    private JComboBox<String> categoriaCombo;
+    private JSpinner dataInicioSpinner;
+    private JSpinner dataFimSpinner;
+    private JButton buscarButton;
+    private JTable historicoTable;
+    private DefaultTableModel tableModel;
     private JLabel statusLabel;
 
     private GenericDAO<Transacao> transacaoDAO = new GenericDAO<>(Transacao.class);
-    private GenericDAO<Categoria> categoriaDAO = new GenericDAO<>(Categoria.class);
+    private GenericDAO<Categoria> categoriaDAO = new GenericDAO<>(Categoria.class);  // DAO de Categoria
+    private Usuario usuarioLogado;
 
-    public HistoricoPanel() {
+    public HistoricoPanel(Usuario usuarioLogado) {
+        this.usuarioLogado = usuarioLogado;
         initComponents();
-        carregarCategorias();
+        carregarCategorias();  // Carregar categorias do banco
         carregarTabela();
     }
 
     private void initComponents() {
-        setLayout(new BorderLayout(10,10));
+        setLayout(new BorderLayout(10, 10));
 
-        JPanel filtrosPanel = new JPanel(new GridLayout(2, 5, 10, 5));
+        // Painel do filtro
+        JPanel filterPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
 
-        filtrosPanel.add(new JLabel("Data Início (YYYY-MM-DD):"));
-        dataInicioField = new JTextField();
-        filtrosPanel.add(dataInicioField);
+        // Tipo de transação (Receita ou Despesa)
+        JLabel tipoLabel = new JLabel("Tipo:");
+        tipoCombo = new JComboBox<>(new String[]{"Receita", "Despesa"});
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        filterPanel.add(tipoLabel, gbc);
+        gbc.gridx = 1;
+        filterPanel.add(tipoCombo, gbc);
 
-        filtrosPanel.add(new JLabel("Data Fim (YYYY-MM-DD):"));
-        dataFimField = new JTextField();
-        filtrosPanel.add(dataFimField);
-
-        filtrosPanel.add(new JLabel("Tipo:"));
-        tipoCombo = new JComboBox<>();
-        tipoCombo.addItem(null); // para filtro "todos"
-        for (TipoTransacao tipo : TipoTransacao.values()) {
-            tipoCombo.addItem(tipo);
-        }
-        filtrosPanel.add(tipoCombo);
-
-        filtrosPanel.add(new JLabel("Categoria:"));
+        // Categoria
+        JLabel categoriaLabel = new JLabel("Categoria:");
         categoriaCombo = new JComboBox<>();
-        categoriaCombo.addItem(null); // para filtro "todas"
-        filtrosPanel.add(categoriaCombo);
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        filterPanel.add(categoriaLabel, gbc);
+        gbc.gridx = 1;
+        filterPanel.add(categoriaCombo, gbc);
 
-        filtrarButton = new JButton("Filtrar");
-        filtrosPanel.add(filtrarButton);
+        // Data de início
+        JLabel dataInicioLabel = new JLabel("Data Início:");
+        Date date = new Date();
+        SpinnerDateModel dateModelInicio = new SpinnerDateModel(date, null, null, java.util.Calendar.DAY_OF_MONTH);  // Novo modelo para Data Início
+        dataInicioSpinner = new JSpinner(dateModelInicio);
+        JSpinner.DateEditor dateEditorInicio = new JSpinner.DateEditor(dataInicioSpinner, "yyyy-MM-dd");
+        dataInicioSpinner.setEditor(dateEditorInicio);
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        filterPanel.add(dataInicioLabel, gbc);
+        gbc.gridx = 1;
+        filterPanel.add(dataInicioSpinner, gbc);
 
-        statusLabel = new JLabel("");
+        // Data de fim
+        JLabel dataFimLabel = new JLabel("Data Fim:");
+        SpinnerDateModel dateModelFim = new SpinnerDateModel(date, null, null, java.util.Calendar.DAY_OF_MONTH);  // Novo modelo para Data Fim
+        dataFimSpinner = new JSpinner(dateModelFim);
+        JSpinner.DateEditor dateEditorFim = new JSpinner.DateEditor(dataFimSpinner, "yyyy-MM-dd");
+        dataFimSpinner.setEditor(dateEditorFim);
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        filterPanel.add(dataFimLabel, gbc);
+        gbc.gridx = 1;
+        filterPanel.add(dataFimSpinner, gbc);
+
+        // Botão de busca
+        buscarButton = new JButton("Buscar");
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.gridwidth = 2;
+        filterPanel.add(buscarButton, gbc);
+
+        add(filterPanel, BorderLayout.NORTH);
+
+        // Tabela de histórico
+        tableModel = new DefaultTableModel(new Object[]{"ID", "Valor", "Data", "Descrição", "Tipo", "Categoria"}, 0);
+        historicoTable = new JTable(tableModel);
+        JScrollPane tableScrollPane = new JScrollPane(historicoTable);
+
+        add(tableScrollPane, BorderLayout.CENTER);
+
+        // Status de erro/sucesso
+        statusLabel = new JLabel(" ");
         statusLabel.setForeground(Color.RED);
-
-        add(filtrosPanel, BorderLayout.NORTH);
-
-        tabelaModel = new DefaultTableModel(new Object[]{"ID", "Valor", "Data", "Descrição", "Tipo", "Categoria"}, 0) {
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        tabela = new JTable(tabelaModel);
-        JScrollPane scrollPane = new JScrollPane(tabela);
-
-        add(scrollPane, BorderLayout.CENTER);
         add(statusLabel, BorderLayout.SOUTH);
 
-        filtrarButton.addActionListener(e -> aplicarFiltro());
+        // Listener do botão de buscar
+        buscarButton.addActionListener(e -> buscarHistorico());
     }
 
     private void carregarCategorias() {
-        List<Categoria> categorias = categoriaDAO.listarTodos();
-        for (Categoria c : categorias) {
-            categoriaCombo.addItem(c);
+        categoriaCombo.removeAllItems();
+        List<Categoria> categorias = categoriaDAO.listarTodos();  // Carregar categorias do banco
+        for (Categoria categoria : categorias) {
+            categoriaCombo.addItem(categoria.getNome());  // Adicionando as categorias cadastradas no ComboBox
         }
     }
 
     private void carregarTabela() {
+        // Carregar dados na tabela. Exemplo:
+        tableModel.setRowCount(0);
         List<Transacao> transacoes = transacaoDAO.listarTodos();
-        atualizarTabela(transacoes);
-    }
-
-    private void aplicarFiltro() {
-        String dataInicioStr = dataInicioField.getText().trim();
-        String dataFimStr = dataFimField.getText().trim();
-        TipoTransacao tipo = (TipoTransacao) tipoCombo.getSelectedItem();
-        Categoria categoria = (Categoria) categoriaCombo.getSelectedItem();
-
-        LocalDate dataInicio = null;
-        LocalDate dataFim = null;
-
-        try {
-            if (!dataInicioStr.isEmpty()) {
-                dataInicio = LocalDate.parse(dataInicioStr);
-            }
-            if (!dataFimStr.isEmpty()) {
-                dataFim = LocalDate.parse(dataFimStr);
-            }
-        } catch (DateTimeParseException ex) {
-            statusLabel.setText("Data inválida. Use o formato YYYY-MM-DD.");
-            return;
-        }
-
-        List<Transacao> transacoes = transacaoDAO.listarTodos();
-
-        List<Transacao> filtradas = transacoes.stream()
-                .filter(t -> (dataInicio == null || !t.getData().isBefore(dataInicio)) &&
-                        (dataFim == null || !t.getData().isAfter(dataFim)) &&
-                        (tipo == null || t.getTipo() == tipo) &&
-                        (categoria == null || t.getCategoria().equals(categoria)))
-                .collect(Collectors.toList());
-
-        atualizarTabela(filtradas);
-        statusLabel.setText("Filtrado " + filtradas.size() + " transações.");
-    }
-
-    private void atualizarTabela(List<Transacao> transacoes) {
-        tabelaModel.setRowCount(0);
         for (Transacao t : transacoes) {
-            tabelaModel.addRow(new Object[]{
-                    t.getId(),
-                    t.getValor(),
-                    t.getData(),
-                    t.getDescricao(),
-                    t.getTipo(),
-                    t.getCategoria().getNome()
-            });
+            if (t.getUsuario().equals(usuarioLogado)) {
+                tableModel.addRow(new Object[]{
+                        t.getId(),
+                        t.getValor(),
+                        t.getData(),
+                        t.getDescricao(),
+                        t.getTipo(),
+                        t.getCategoria().getNome()
+                });
+            }
         }
     }
 
-    // Para mostrar corretamente o nome no combo box categoria
-    @Override
-    public String toString() {
-        return "HistoricoPanel";
+    private void buscarHistorico() {
+        String tipo = (String) tipoCombo.getSelectedItem();
+        String categoria = (String) categoriaCombo.getSelectedItem();
+
+        // Verificar as datas selecionadas
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        String dataInicio = null;
+        String dataFim = null;
+
+        if (dataInicioSpinner.getValue() != null) {
+            dataInicio = sdf.format(dataInicioSpinner.getValue());
+        }
+
+        if (dataFimSpinner.getValue() != null) {
+            dataFim = sdf.format(dataFimSpinner.getValue());
+        }
+
+        // Limpa a tabela antes de adicionar novos resultados
+        tableModel.setRowCount(0);
+
+        // Realizar busca com base nos filtros. Aqui, estamos apenas filtrando por tipo, mas você pode ajustar para filtrar de acordo com os outros campos também.
+        List<Transacao> transacoes = transacaoDAO.listarTodos();
+
+        // Adicionando logs para depuração
+        System.out.println("Buscando transações... Filtros aplicados - Tipo: " + tipo + ", Categoria: " + categoria + ", Data Início: " + dataInicio + ", Data Fim: " + dataFim);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        boolean transacaoEncontrada = false;  // Flag para verificar se encontramos transações
+
+        for (Transacao t : transacoes) {
+            boolean match = true;
+
+            // Verificar tipo
+            if (tipo != null && !t.getTipo().toString().equalsIgnoreCase(tipo)) {
+                match = false;
+            }
+
+            // Verificar categoria
+            if (categoria != null && !t.getCategoria().getNome().equalsIgnoreCase(categoria)) {
+                match = false;
+            }
+
+            // Verificar data de início
+            if (dataInicio != null && t.getData().isBefore(LocalDate.parse(dataInicio, formatter))) {
+                match = false;
+            }
+
+            // Verificar data de fim
+            if (dataFim != null && t.getData().isAfter(LocalDate.parse(dataFim, formatter))) {
+                match = false;
+            }
+
+            // Se a transação corresponde aos filtros, adiciona na tabela
+            if (match && t.getUsuario().equals(usuarioLogado)) {
+                transacaoEncontrada = true;
+                System.out.println("Transação encontrada: " + t.getDescricao());  // Log para verificação
+                tableModel.addRow(new Object[]{
+                        t.getId(),
+                        t.getValor(),
+                        t.getData(),
+                        t.getDescricao(),
+                        t.getTipo(),
+                        t.getCategoria().getNome()
+                });
+            }
+        }
+
+        // Atualizando a tabela
+        historicoTable.setModel(tableModel);
+
+        // Verificação final se a tabela foi atualizada
+        if (!transacaoEncontrada) {
+            System.out.println("Nenhuma transação encontrada com os filtros aplicados.");
+        }
     }
 }

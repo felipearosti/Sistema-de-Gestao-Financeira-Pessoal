@@ -12,6 +12,6 @@ public class CriarUsuarioTeste {
         usuarioDAO.salvar(user);
 
         System.out.println("Usuário criado com sucesso!");
-        HibernateUtil.shutdown(); // Fecha a fábrica de sessões
+        HibernateUtil.shutdown();
     }
 }

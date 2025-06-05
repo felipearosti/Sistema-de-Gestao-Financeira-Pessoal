@@ -1,26 +1,34 @@
 package ui;
 
+import model.Usuario;
+
 import javax.swing.*;
 import java.awt.*;
 
 public class MainFrame extends JFrame {
 
-    public MainFrame() {
+    private JTabbedPane tabbedPane;
+
+    // Construtor com índice da aba inicial e o usuário logado
+    public MainFrame(int abaInicial, Usuario usuarioLogado) {
         setTitle("Sistema de Gestão Financeira");
-        setSize(800, 600);
+        setSize(900, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        initUI();
+        initUI(usuarioLogado);  // Passando o usuário logado para os painéis
+
+        tabbedPane.setSelectedIndex(abaInicial);
     }
 
-    private void initUI() {
-        JTabbedPane tabbedPane = new JTabbedPane();
+    private void initUI(Usuario usuarioLogado) {
+        tabbedPane = new JTabbedPane();
 
+        // Passando o usuário logado para os painéis
         JPanel panelCategorias = new CategoriaPanel();
-        JPanel panelTransacoes = new TransacaoPanel();
-        JPanel panelHistorico = new HistoricoPanel();
-        JPanel panelResumo = new ResumoPanel();
+        JPanel panelTransacoes = new TransacaoPanel(usuarioLogado); // Passando o usuário logado
+        JPanel panelHistorico = new HistoricoPanel(usuarioLogado); // Passando o usuário logado
+        JPanel panelResumo = new ResumoPanel(usuarioLogado); // Passando o usuário logado
 
         tabbedPane.addTab("Categorias", panelCategorias);
         tabbedPane.addTab("Transações", panelTransacoes);
@@ -28,11 +36,5 @@ public class MainFrame extends JFrame {
         tabbedPane.addTab("Resumo", panelResumo);
 
         add(tabbedPane, BorderLayout.CENTER);
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new MainFrame().setVisible(true);
-        });
     }
 }
